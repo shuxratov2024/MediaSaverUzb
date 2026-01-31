@@ -1,113 +1,67 @@
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
-const { getMediaStream } = require('./downloaders'); // Funksiya nomi to'g'irlandi
-const fs = require('fs');
+const { getMediaStream } = require('./downloaders');
+const http = require('http'); // Render uchun kerak
 
+// 1. Telegram Botni sozlash
 const token = process.env.TELEGRAM_BOT_TOKEN;
-const CHANNEL_ID = '@a722k';
+if (!token) {
+    console.error("XATO: .env faylida TELEGRAM_BOT_TOKEN yo'q!");
+    process.exit(1);
+}
+
 const bot = new TelegramBot(token, { polling: true });
 
-const userStats = {};
-const pendingLinks = {}; 
+// 2. Render uchun kichik server (Cron-job shunga "ping" beradi)
+const server = http.createServer((req, res) => {
+    res.writeHead(200);
+    res.end('Bot is running and healthy!');
+});
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`Server Render uchun portda eshityapti: ${PORT}`);
+});
 
-async function checkSubscription(userId) {
-    try {
-        const member = await bot.getChatMember(CHANNEL_ID, userId);
-        return ['creator', 'administrator', 'member'].includes(member.status);
-    } catch (e) {
-        return false;
-    }
-}
-
-function showFormatButtons(chatId) {
-    const options = {
-        reply_markup: {
-            inline_keyboard: [
-                [
-                    { text: '🎬 Video (MP4)', callback_data: `dl_video` },
-                    { text: '🎵 Audio (MP3)', callback_data: `dl_audio` }
-                ]
-            ]
-        }
-    };
-    bot.sendMessage(chatId, "Formatni tanlang:", options);
-}
+// 3. Bot logikasi
+console.log('Bot 100% Stream usulida ishga tushdi!');
 
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
-    const userId = msg.from.id;
     const text = msg.text;
 
     if (!text) return;
 
+    // Start komandasi
     if (text === '/start') {
-        return bot.sendMessage(chatId, "👋 Salom! Menga YouTube, TikTok yoki Instagram linkini yuboring.");
+        return bot.sendMessage(chatId, "Assalomu alaykum! Menga Instagram, TikTok yoki YouTube link yuboring.");
     }
 
+    // Link ekanligini tekshirish
     if (text.startsWith('http')) {
-        pendingLinks[userId] = text;
+        const waitingMsg = await bot.sendMessage(chatId, "⏳ Video yuklanmoqda... (Biroz kuting)");
 
-        if (!userStats[userId]) userStats[userId] = 0;
-        userStats[userId]++;
+        try {
+            // Streamni olish
+            const stream = getMediaStream(text, 'video');
 
-        if (userStats[userId] >= 3) {
-            const isSubscribed = await checkSubscription(userId);
-            if (!isSubscribed) {
-                const joinKeyboard = {
-                    reply_markup: {
-                        inline_keyboard: [
-                            [{ text: "📢 Kanalga obuna bo'lish", url: `https://t.me/a722k` }],
-                            [{ text: "✅ Obunani tekshirish", callback_data: `check_sub` }]
-                        ]
-                    }
-                };
-                return bot.sendMessage(chatId, `🛑 Botdan foydalanishda davom etish uchun @a722k kanaliga obuna bo'lishingiz shart!`, joinKeyboard);
-            }
+            // Telegramga video sifatida yuborish
+            await bot.sendVideo(chatId, stream, {
+                caption: "📥 @MediaSaverUzbBot orqali yuklandi",
+                supports_streaming: true
+            }, {
+                filename: 'video.mp4',
+                contentType: 'video/mp4'
+            });
+
+            // "Yuklanmoqda" xabarini o'chirish
+            bot.deleteMessage(chatId, waitingMsg.message_id).catch(() => {});
+
+        } catch (error) {
+            console.error("Bot Xatosi:", error);
+            bot.editMessageText("❌ Kechirasiz, bu videoni yuklab bo'lmadi. Linkni tekshirib ko'ring.", {
+                chat_id: chatId,
+                message_id: waitingMsg.message_id
+            });
         }
-        showFormatButtons(chatId);
     }
 });
-
-bot.on('callback_query', async (query) => {
-    const chatId = query.message.chat.id;
-    const userId = query.from.id;
-    const data = query.data;
-    const url = pendingLinks[userId];
-
-    if (!url && data !== 'check_sub') {
-        return bot.answerCallbackQuery(query.id, { text: "Link topilmadi!" });
-    }
-
-    if (data === 'check_sub') {
-        const isSubscribed = await checkSubscription(userId);
-        if (isSubscribed) {
-            bot.deleteMessage(chatId, query.message.message_id);
-            showFormatButtons(chatId);
-        } else {
-            bot.answerCallbackQuery(query.id, { text: "Obuna bo'lmagansiz!", show_alert: true });
-        }
-        return;
-    }
-
-    const type = (data === 'dl_video') ? 'video' : 'audio';
-    const sentMsg = await bot.sendMessage(chatId, `🚀`);
-
-    try {
-        const stream = getMediaStream(url, type);
-
-        if (type === 'video') {
-            await bot.sendVideo(chatId, stream, { caption: "✅ @MediaSaverUzb_bot" });
-        } else {
-            await bot.sendAudio(chatId, stream, { caption: "🎵 @MediaSaverUzb_bot" });
-        }
-
-        bot.deleteMessage(chatId, sentMsg.message_id);
-        delete pendingLinks[userId];
-
-    } catch (e) {
-        console.error("Xatolik:", e.message);
-        bot.sendMessage(chatId, "❌ xatolik bo'ldi.");
-    }
-});
-
-console.log("Bot 100% Stream usulida ishga tushdi!");
