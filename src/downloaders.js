@@ -1,49 +1,47 @@
 const { spawn } = require('child_process');
 const path = require('path');
 
-// Render (Linux) yoki Windows ekanligini aniqlash
 const isRender = process.env.RENDER === 'true' || process.env.NODE_ENV === 'production';
 
-// Renderda tizimning o'zidan, Windowsda bin papkasidan oladi
+// Windowsda .exe, Linuxda (Render) tizimdagi buyruq
 const YTDLP_EXE = isRender ? 'yt-dlp' : path.join(__dirname, '..', 'bin', 'yt-dlp.exe');
 const FFMPEG_PATH = isRender ? '/usr/bin' : path.join(__dirname, '..', 'bin');
 
 function getMediaStream(url, type = 'video') {
-    // Formatni tanlash:
-    // Audio uchun: eng yaxshi audio
-    // Video uchun: [vcodec^=avc] bu H.264 kodeki (oq ekran bo'lmaydi)
-    const formatSelection = type === 'audio' 
-        ? 'bestaudio/best' 
-        : 'bestvideo[vcodec^=avc]+bestaudio[acodec^=mp4a]/best[ext=mp4]/best';
+    // Format tanlovi (Tezlik va sifat balansi)
+    let formatArgs = [];
+    
+    if (type === 'audio') {
+        formatArgs = ['--format', 'bestaudio/best'];
+    } else {
+        // H.264 (MP4) - Telegram uchun eng ishonchli va tez format
+        formatArgs = [
+            '--format', 'bestvideo[vcodec^=avc]+bestaudio[acodec^=mp4a]/best[ext=mp4]/best',
+            '--merge-output-format', 'mp4'
+        ];
+    }
 
     const args = [
         '--ffmpeg-location', FFMPEG_PATH,
-        '--format', formatSelection,
-        '--merge-output-format', 'mp4', // Majburan MP4 qilish
+        ...formatArgs,
         '--no-playlist',
         '--no-check-certificate',
-        
-        // Videoni faylga yozmay, to'g'ridan-to'g'ri Telegramga uzatish (Stream)
-        '-o', '-', 
+        '--quiet',         // Ortiqcha ma'lumot chiqarmaslik (tezlatadi)
+        '--no-warnings',   // Ogohlantirishlarni ko'rsatmaslik
+        '-o', '-',         // Stream rejimi
         url
     ];
 
-    console.log(`Yuklash boshlandi (Mode: ${isRender ? 'Server' : 'Local'}): ${url}`);
+    // Qora oyna chiqmasligi uchun 'windowsHide: true' qo'shildi
+    const ytProcess = spawn(YTDLP_EXE, args, { windowsHide: true });
 
-    // Jarayonni boshlash
-    const ytProcess = spawn(YTDLP_EXE, args);
-
-    // Xatolarni logga chiqarish (debug uchun)
     ytProcess.stderr.on('data', (data) => {
-        // Loglarni juda ko'paytirmaslik uchun faqat errorlarni ko'rsatish mumkin
-        // console.log("YT-DLP Log:", data.toString()); 
+        // Faqat jiddiy xatolarni logga chiqaramiz
+        const msg = data.toString();
+        if (msg.includes('ERROR')) console.error("YT-DLP Error:", msg);
     });
 
-    ytProcess.on('error', (err) => {
-        console.error("YT-DLP Xatosi:", err);
-    });
-
-    return ytProcess.stdout; // Streamni qaytaradi
+    return ytProcess.stdout;
 }
 
 module.exports = { getMediaStream };
