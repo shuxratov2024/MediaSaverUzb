@@ -1,6 +1,6 @@
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
-const { getMediaLink } = require('./downloaders');
+const { getMediaLink, getYouTubeStream } = require('./downloaders'); // getMediaLink nomi muhim!
 const http = require('http');
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
