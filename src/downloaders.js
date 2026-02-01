@@ -2,57 +2,62 @@ const axios = require('axios');
 const { spawn } = require('child_process');
 const path = require('path');
 
-// --- 1. TEZ IShLAYDIGAN API SERVERLAR RO'YXATI ---
-// Agar bittasi ishlamasa, bot keyingisiga o'tadi.
+// --- 1. ISHLAYDIGAN SERVERLAR RO'YXATI (v10) ---
+// Biz eski "api.cobalt.tools" ni RO'YXATDAN O'CHIRDIK.
+// Endi faqat tirik serverlarni ishlatamiz.
 const COBALT_INSTANCES = [
-    'https://cobalt.kwiatekmiki.pl', // Polsha serveri (Juda tez)
-    'https://api.succoon.com',       // Zaxira 1
-    'https://cobalt.tools.api.red',  // Zaxira 2
-    'https://api.server.social',     // Zaxira 3
+    'https://cobalt.kwiatekmiki.pl', // 1-urinish
+    'https://api.succoon.com',       // 2-urinish
+    'https://api.server.social',     // 3-urinish
+    'https://w.manowar.dev'          // 4-urinish
 ];
 
-// --- 2. API ORQALI YUKLASH (Instagram, TikTok) ---
 async function getMediaLink(url) {
-    // Har bir serverni navbatma-navbat tekshirib ko'ramiz
+    console.log(`Linkni qidiryabman: ${url}`);
+
     for (const server of COBALT_INSTANCES) {
         try {
-            console.log(`Urinib ko'rilmoqda: ${server}`);
-            
+            // Serverga so'rov yuborish
             const response = await axios.post(server, {
                 url: url,
-                // Yangi Cobalt v10 sozlamalari:
+                // Yangi Cobalt v10 sozlamalari
                 videoQuality: '720',
                 filenameStyle: 'basic',
-                disableMetadata: true
+                disableMetadata: true,
+                alwaysProxy: false 
             }, {
                 headers: {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json',
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0'
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/123.0.0.0 Safari/537.36'
                 },
-                timeout: 5000 // 5 soniya kutamiz, javob bo'lmasa keyingisiga o'tamiz
+                timeout: 6000 // 6 soniya kutamiz
             });
 
-            // Agar server javob bersa va link bo'lsa
+            // Agar javob kelsa va unda URL bo'lsa
             if (response.data && response.data.url) {
+                console.log(`✅ Muvaffaqiyatli server: ${server}`);
                 return response.data.url;
-            } else if (response.data.picker) {
+            } 
+            
+            // Ba'zi serverlar "picker" (tanlov) qaytaradi
+            if (response.data && response.data.picker) {
+                console.log(`✅ Muvaffaqiyatli server (Picker): ${server}`);
                 return response.data.picker[0].url;
             }
 
         } catch (error) {
-            // Bu server ishlamadi, hech qisi yo'q, keyingisiga o'tamiz
-            console.log(`${server} dan xato: ${error.message}`);
-            continue; 
+            // Xato bersa, logga yozib keyingisiga o'tamiz
+            console.log(`❌ ${server} ishlamadi: ${error.message}. Keyingisi...`);
+            continue;
         }
     }
     
-    // Agar hamma serverlar o'chgan bo'lsa:
-    console.error("Hamma API serverlar band yoki ishlamayapti.");
+    console.error("Hamma serverlar band.");
     return null;
 }
 
-// --- 3. YOUTUBE UChUN (Eski ishonchli usul) ---
+// --- YOUTUBE UCHUN (YT-DLP) ---
 const isRender = process.env.RENDER === 'true' || process.env.NODE_ENV === 'production';
 const YTDLP_EXE = isRender ? 'yt-dlp' : path.join(__dirname, '..', 'bin', 'yt-dlp.exe');
 const FFMPEG_PATH = isRender ? '/usr/bin' : path.join(__dirname, '..', 'bin');
@@ -69,7 +74,6 @@ function getYouTubeStream(url, type = 'video') {
         '-o', '-',
         url
     ];
-
     return spawn(YTDLP_EXE, args, { windowsHide: true }).stdout;
 }
 
