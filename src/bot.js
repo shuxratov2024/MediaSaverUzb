@@ -31,32 +31,21 @@ bot.on('message', async (msg) => {
     // Instagram / TikTok
     const processingMsg = await bot.sendMessage(chatId, "⚡️ Yuklanmoqda...");
     
-    try {
-        // Gibrid yuklash (API yoki yt-dlp)
-        const result = await getMediaLink(text);
-
-        if (result.type === 'url') {
-            // Agar API ishlagan bo'lsa (URL)
-            await bot.sendVideo(chatId, result.data, {
-                caption: "📥 @MediaSaverUzbBot (Tezkor)",
-                supports_streaming: true
-            });
-        } else {
-            // Agar yt-dlp ishlagan bo'lsa (Stream)
-            await bot.sendVideo(chatId, result.data, {
-                caption: "📥 @MediaSaverUzbBot (Zaxira)",
-                supports_streaming: true
-            }, { filename: 'video.mp4', contentType: 'video/mp4' });
-        }
-
-        bot.deleteMessage(chatId, processingMsg.message_id).catch(() => {});
-    } catch (error) {
-        console.error(error);
-        bot.editMessageText("❌ Video topilmadi yoki profil yopiq.", {
-            chat_id: chatId,
-            message_id: processingMsg.message_id
-        });
-    }
+    if (result.type === 'url') {
+    await bot.sendVideo(chatId, result.data, {
+        caption: "🚀 @MediaSaverUzbBot",
+        supports_streaming: true
+    });
+} else {
+    // Stream usulida filename va contentType aniq ko'rsatiladi
+    await bot.sendVideo(chatId, result.data, {
+        caption: "📥 @MediaSaverUzbBot (Zaxira usulda yuklandi)",
+        supports_streaming: true
+    }, {
+        filename: 'video.mp4',
+        contentType: 'video/mp4'
+    });
+}
 });
 
 // YouTube Handler
