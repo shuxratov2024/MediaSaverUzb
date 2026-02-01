@@ -1,62 +1,38 @@
-const { spawn } = require('child_process');
-const path = require('path');
-const axios = require('axios'); // Yangi qo'shildi
+const axios = require('axios');
 
-const isRender = process.env.RENDER === 'true' || process.env.NODE_ENV === 'production';
-const YTDLP_EXE = isRender ? 'yt-dlp' : path.join(__dirname, '..', 'bin', 'yt-dlp.exe');
-const FFMPEG_PATH = isRender ? '/usr/bin' : path.join(__dirname, '..', 'bin');
-
-// 1. YouTube uchun (yt-dlp ishlatamiz)
-function getYouTubeStream(url, type = 'video') {
-    let formatArgs = [];
-    if (type === 'audio') {
-        formatArgs = ['--format', 'bestaudio/best'];
-    } else {
-        formatArgs = [
-            '--format', 'bestvideo[vcodec^=avc]+bestaudio[acodec^=mp4a]/best[ext=mp4]/best',
-            '--merge-output-format', 'mp4'
-        ];
-    }
-
-    const args = [
-        '--ffmpeg-location', FFMPEG_PATH,
-        ...formatArgs,
-        '--no-playlist',
-        '--no-check-certificate',
-        '--quiet', '--no-warnings',
-        '-o', '-',
-        url
-    ];
-
-    return spawn(YTDLP_EXE, args, { windowsHide: true }).stdout;
-}
-
-// 2. Instagram va TikTok uchun (API ishlatamiz)
-async function getSocialMediaLink(url) {
+async function getMediaLink(url) {
     try {
-        // Cobalt API - bepul va kuchli
+        // Cobalt API - Hozirgi kunda eng tezi
+        // Biz serverga hech narsa yuklab olmaymiz (disk to'lmaydi)
         const response = await axios.post('https://api.cobalt.tools/api/json', {
             url: url,
-            vCodec: 'h264', // Telegram uchun mos format
-            vQuality: '720',
+            vCodec: 'h264',     // Telegram yaxshi ko'radigan format
+            vQuality: '720',    // Sifat (480, 720, 1080, max)
+            aFormat: 'mp3',
             filenamePattern: 'basic',
             isAudioOnly: false
         }, {
             headers: {
                 'Accept': 'application/json',
+                // Serverni oddiy brauzer deb aldash
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }
         });
 
-        if (response.data && response.data.url) {
-            return response.data.url; // Tayyor video link qaytadi
+        // API bizga status va url qaytaradi
+        if (response.data && response.data.status === 'stream' || response.data.status === 'redirect') {
+            return response.data.url;
+        } else if (response.data.picker) {
+            // Agar video bir nechta bo'lsa (masalan karusel), birinchisini olamiz
+            return response.data.picker[0].url; 
         } else {
-            throw new Error("API video topolmadi");
+            return null;
         }
+
     } catch (error) {
-        console.error("API Error:", error.message);
+        console.error("API Xatosi:", error.response ? error.response.data : error.message);
         return null;
     }
 }
 
-module.exports = { getYouTubeStream, getSocialMediaLink };
+module.exports = { getMediaLink };

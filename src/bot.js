@@ -1,15 +1,15 @@
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
-const { getYouTubeStream, getSocialMediaLink } = require('./downloaders');
+const { getMediaLink } = require('./downloaders');
 const http = require('http');
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
 
-// Serverni uxlatmaslik
-http.createServer((req, res) => res.end('Bot is alive!')).listen(process.env.PORT || 3000);
+// Render serverini uxlatmaslik
+http.createServer((req, res) => res.end('Fast Bot Alive!')).listen(process.env.PORT || 3000);
 
-console.log('Bot ishga tushdi (API Mode)');
+console.log('Bot eng tezkor rejimda ishga tushdi (Cobalt API)!');
 
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
@@ -17,62 +17,24 @@ bot.on('message', async (msg) => {
 
     if (!text || !text.startsWith('http')) return;
 
-    // Link turini aniqlash
-    const isYouTube = text.includes('youtube.com') || text.includes('youtu.be');
-    
-    // --- YOUTUBE BO'LSA ---
-    if (isYouTube) {
-        bot.sendMessage(chatId, "Formatni tanlang:", {
-            reply_markup: {
-                inline_keyboard: [[
-                    { text: "🎬 Video", callback_data: `vid_${text}` },
-                    { text: "🎵 Audio", callback_data: `aud_${text}` }
-                ]]
-            }
-        });
-        return;
-    }
-
-    // --- INSTAGRAM / TIKTOK BO'LSA ---
-    const processingMsg = await bot.sendMessage(chatId, "⏳ API orqali yuklanmoqda...");
+    // Telegramga "Video yuboryapman" deb ko'rsatib turish
+    bot.sendChatAction(chatId, 'upload_video');
 
     try {
-        // 1. API dan to'g'ridan-to'g'ri link olamiz
-        const directUrl = await getSocialMediaLink(text);
+        // 1. API dan link olamiz (Juda tez, <1 soniya)
+        const directUrl = await getMediaLink(text);
 
         if (directUrl) {
-            // 2. Telegramga o'sha linkni yuboramiz (Telegram o'zi serverdan tortib oladi)
+            // 2. Linkni Telegramga beramiz, Telegram o'zi yuklab oladi
             await bot.sendVideo(chatId, directUrl, {
-                caption: "📥 @MediaSaverUzbBot",
+                caption: "🚀 @MediaSaverUzbBot",
                 supports_streaming: true
             });
-            bot.deleteMessage(chatId, processingMsg.message_id).catch(() => {});
         } else {
-            throw new Error("Link topilmadi");
+            bot.sendMessage(chatId, "❌ Kechirasiz, videoni topib bo'lmadi. Link xato yoki maxfiy profil.");
         }
     } catch (error) {
-        bot.editMessageText("❌ Kechirasiz, bu videoni yuklab bo'lmadi. Blokirovka kuchli.", {
-            chat_id: chatId,
-            message_id: processingMsg.message_id
-        });
-    }
-});
-
-// YouTube tugmalari
-bot.on('callback_query', async (query) => {
-    const chatId = query.message.chat.id;
-    const data = query.data;
-    const url = data.substring(4);
-
-    bot.answerCallbackQuery(query.id);
-    bot.deleteMessage(chatId, query.message.message_id).catch(() => {});
-    
-    // YouTube hali ham yt-dlp ishlatadi
-    const stream = getYouTubeStream(url, data.startsWith('vid_') ? 'video' : 'audio');
-    
-    if (data.startsWith('vid_')) {
-        bot.sendVideo(chatId, stream, { caption: "📥 @MediaSaverUzbBot" });
-    } else {
-        bot.sendAudio(chatId, stream, { caption: "🎵 @MediaSaverUzbBot" });
+        console.error(error);
+        bot.sendMessage(chatId, "⚠️ Xatolik yuz berdi.");
     }
 });
