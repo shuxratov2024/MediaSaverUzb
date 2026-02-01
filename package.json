@@ -10,7 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "@distube/ytdl-core": "^4.16.12",
-    "axios": "^1.13.2",
+    "axios": "^1.13.4",
     "dotenv": "^17.2.3",
     "execa": "^9.6.1",
     "grammy": "^1.39.3",
