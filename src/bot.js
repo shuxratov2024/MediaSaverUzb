@@ -72,8 +72,8 @@ bot.on('callback_query', async (query) => {
     const stream = getLocalStream(url, data.startsWith('vid_') ? 'video' : 'audio');
     
     if (data.startsWith('vid_')) {
-        bot.sendVideo(chatId, stream, { caption: "📥 @MediaSaverUzbBot" });
+        bot.sendVideo(chatId, stream, { caption: "📥 @MediaSaverUzb" });
     } else {
-        bot.sendAudio(chatId, stream, { caption: "🎵 @MediaSaverUzbBot" });
+        bot.sendAudio(chatId, stream, { caption: "🎵 @MediaSaverUzb" });
     }
 });
