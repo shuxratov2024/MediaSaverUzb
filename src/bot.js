@@ -1,15 +1,14 @@
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
-const { getMediaLink, getYouTubeStream } = require('./downloaders'); // getMediaLink borligiga ishonch hosil qiling
+const { getMediaLink, getLocalStream } = require('./downloaders');
 const http = require('http');
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
 
-// Serverni uxlatmaslik
-http.createServer((req, res) => res.end('Bot is running!')).listen(process.env.PORT || 3000);
+http.createServer((req, res) => res.end('Bot Alive')).listen(process.env.PORT || 3000);
 
-console.log('Bot yangi Multi-Server tizimida ishga tushdi!');
+console.log('Bot GIBRID rejimda ishga tushdi!');
 
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
@@ -17,7 +16,7 @@ bot.on('message', async (msg) => {
 
     if (!text || !text.startsWith('http')) return;
 
-    // YouTube tekshiruvi
+    // YouTube bo'lsa - eski usul (stream)
     if (text.includes('youtube.com') || text.includes('youtu.be')) {
         return bot.sendMessage(chatId, "Formatni tanlang:", {
             reply_markup: {
@@ -30,24 +29,30 @@ bot.on('message', async (msg) => {
     }
 
     // Instagram / TikTok
-    const processingMsg = await bot.sendMessage(chatId, "🔍 Video qidirilmoqda...");
+    const processingMsg = await bot.sendMessage(chatId, "⚡️ Yuklanmoqda...");
     
     try {
-        // Yangi funksiyani chaqiramiz
-        const directUrl = await getMediaLink(text);
+        // Gibrid yuklash (API yoki yt-dlp)
+        const result = await getMediaLink(text);
 
-        if (directUrl) {
-            await bot.sendVideo(chatId, directUrl, {
-                caption: "📥 @MediaSaverUzbBot",
+        if (result.type === 'url') {
+            // Agar API ishlagan bo'lsa (URL)
+            await bot.sendVideo(chatId, result.data, {
+                caption: "📥 @MediaSaverUzbBot (Tezkor)",
                 supports_streaming: true
             });
-            bot.deleteMessage(chatId, processingMsg.message_id).catch(() => {});
         } else {
-            throw new Error("Link topilmadi");
+            // Agar yt-dlp ishlagan bo'lsa (Stream)
+            await bot.sendVideo(chatId, result.data, {
+                caption: "📥 @MediaSaverUzbBot (Zaxira)",
+                supports_streaming: true
+            }, { filename: 'video.mp4', contentType: 'video/mp4' });
         }
+
+        bot.deleteMessage(chatId, processingMsg.message_id).catch(() => {});
     } catch (error) {
         console.error(error);
-        bot.editMessageText("❌ Serverlar band yoki video topilmadi. Birozdan so'ng urinib ko'ring.", {
+        bot.editMessageText("❌ Video topilmadi yoki profil yopiq.", {
             chat_id: chatId,
             message_id: processingMsg.message_id
         });
@@ -63,7 +68,8 @@ bot.on('callback_query', async (query) => {
     bot.answerCallbackQuery(query.id);
     bot.deleteMessage(chatId, query.message.message_id).catch(() => {});
 
-    const stream = getYouTubeStream(url, data.startsWith('vid_') ? 'video' : 'audio');
+    // YouTube har doim stream
+    const stream = getLocalStream(url, data.startsWith('vid_') ? 'video' : 'audio');
     
     if (data.startsWith('vid_')) {
         bot.sendVideo(chatId, stream, { caption: "📥 @MediaSaverUzbBot" });
