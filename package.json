@@ -4,13 +4,13 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js" 
+    "start": "node index.js"
   },
   "dependencies": {
-    "dotenv": "^...",
-    "telegraf": "^...",
-    "uuid": "^...",
-    "youtube-dl-exec": "^..."
-  },
+    "dotenv": "*",
+    "telegraf": "*",
+    "uuid": "*",
+    "youtube-dl-exec": "*"
+  }
   "keywords": []
 }
