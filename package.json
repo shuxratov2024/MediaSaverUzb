@@ -11,6 +11,6 @@
     "telegraf": "*",
     "uuid": "*",
     "youtube-dl-exec": "*"
-  }
+  },
   "keywords": []
 }
