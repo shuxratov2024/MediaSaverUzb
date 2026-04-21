@@ -1,23 +1,16 @@
 {
   "name": "dowland-bot",
   "version": "1.0.0",
-  "description": "Downloader Bot for Social Medias",
+  "type": "module",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js" 
   },
-  "author": "Shuxratov2024",
-  "license": "ISC",
   "dependencies": {
-    "@distube/ytdl-core": "^4.16.12",
-    "axios": "^1.13.4",
-    "dotenv": "^17.4.2",
-    "execa": "^9.6.1",
-    "grammy": "^1.39.3",
-    "node-telegram-bot-api": "^0.67.0",
-    "telegraf": "^4.16.3",
-    "youtube-dl-exec": "^3.1.5",
-    "ytdl-core": "^4.11.5"
+    "dotenv": "^...",
+    "telegraf": "^...",
+    "uuid": "^...",
+    "youtube-dl-exec": "^..."
   },
   "keywords": []
 }
